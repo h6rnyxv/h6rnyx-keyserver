@@ -17,28 +17,49 @@ async function validateWorkInkToken(token: string): Promise<{ valid: boolean; er
   }
 }
 
+function getExpiresAt(expires_in: string): string | null {
+  if (!expires_in || expires_in === "lifetime") return null;
+  const now = new Date();
+  const match = expires_in.match(/^(\d+)(h|d|m)$/);
+  if (!match) return null;
+  const amount = parseInt(match[1]);
+  const unit = match[2];
+  if (unit === "h") now.setHours(now.getHours() + amount);
+  else if (unit === "d") now.setDate(now.getDate() + amount);
+  else if (unit === "m") now.setMinutes(now.getMinutes() + amount);
+  return now.toISOString();
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
     const label: string = body.label || "";
     const workinkToken: string = body.workink_token || "";
+    const adminKey: string = body.admin_key || "";
+    const expiresIn: string = body.expires_in || "lifetime";
 
-    if (workinkToken) {
-      const validation = await validateWorkInkToken(workinkToken);
-      if (!validation.valid) {
-        return NextResponse.json(
-          { error: validation.error || "Token de work.ink inválido" },
-          { status: 403 }
-        );
+    const isAdminRequest = adminKey && adminKey === process.env.ADMIN_KEY;
+
+    if (!isAdminRequest) {
+      if (workinkToken) {
+        const validation = await validateWorkInkToken(workinkToken);
+        if (!validation.valid) {
+          return NextResponse.json(
+            { error: validation.error || "Token de work.ink inválido" },
+            { status: 403 }
+          );
+        }
       }
     }
 
     const key = `h6x-${uuidv4().replace(/-/g, "").slice(0, 32)}`;
+    const expires_at = isAdminRequest ? getExpiresAt(expiresIn) : null;
 
     const { error } = await supabaseAdmin.from("api_keys").insert({
       key,
-      label: label || null,
+      label: label || (isAdminRequest ? `Bot | ${expiresIn}` : null),
       is_active: true,
+      expires_at,
     });
 
     if (error) {
@@ -49,7 +70,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    return NextResponse.json({ key, message: "Key generada exitosamente" });
+    return NextResponse.json({
+      key,
+      message: "Key generada exitosamente",
+      expires_in: expiresIn,
+      expires_at: expires_at || "never",
+    });
   } catch (err) {
     console.error("Unexpected error:", err);
     return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
