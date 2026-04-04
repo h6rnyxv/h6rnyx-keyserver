@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
 
     const { data, error } = await supabaseAdmin
       .from("api_keys")
-      .select("id, key, is_active, label, created_at")
+      .select("id, key, is_active, label, created_at, expires_at")
       .eq("key", key)
       .single();
 
@@ -33,6 +33,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (data.expires_at && new Date(data.expires_at) < new Date()) {
+      await supabaseAdmin
+        .from("api_keys")
+        .update({ is_active: false })
+        .eq("key", key);
+      return NextResponse.json(
+        { valid: false, message: "Key expirada" },
+        { status: 403 }
+      );
+    }
+
     await supabaseAdmin
       .from("api_keys")
       .update({ last_used_at: new Date().toISOString() })
@@ -43,6 +54,7 @@ export async function POST(req: NextRequest) {
       message: "Key válida y activa",
       label: data.label,
       created_at: data.created_at,
+      expires_at: data.expires_at || "never",
     });
   } catch (err) {
     console.error("Unexpected error:", err);
