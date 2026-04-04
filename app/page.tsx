@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-const WORKINK_LINK = process.env.NEXT_PUBLIC_WORKINK_LINK || "#";
+const WORKINK_LINK = "https://work.ink/2tqZ/keyserver";
 
 export default function Home() {
   const [keyToCheck, setKeyToCheck] = useState("");
