@@ -64,12 +64,19 @@ export default function AdminPage() {
   };
 
   const refreshStats = async () => {
-    const res = await fetch("/api/admin/stats", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ admin_key: adminKey }),
-    });
-    if (res.ok) setStats(await res.json());
+    setRefreshing(true);
+    try {
+      const res = await fetch("/api/admin/stats", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ admin_key: adminKey }),
+      });
+      if (res.ok) setStats(await res.json());
+    } catch {
+      // silently ignore network errors
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const deleteKey = async (key: string) => {
@@ -156,9 +163,10 @@ export default function AdminPage() {
         </div>
         <button
           onClick={refreshStats}
-          className="bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded-lg text-sm transition-colors"
+          disabled={refreshing}
+          className="bg-gray-800 hover:bg-gray-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm transition-colors"
         >
-          ↻ Actualizar
+          {refreshing ? "Actualizando..." : "↻ Actualizar"}
         </button>
       </div>
 
