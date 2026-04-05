@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-const DISCORD_INVITE = process.env.NEXT_PUBLIC_DISCORD_INVITE || "https://discord.gg/tu-servidor";
+const DISCORD_INVITE = "https://discord.gg/B29pp4vm5G";
 
 type KeyRow = {
   id: string;
