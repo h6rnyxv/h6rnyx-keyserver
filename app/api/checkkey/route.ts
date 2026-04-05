@@ -30,9 +30,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ valid: false, message: "Key expirada" }, { status: 403 });
     }
 
-    const updateData: Record<string, string> = { last_used_at: new Date().toISOString() };
-    if (robloxUsername) updateData.roblox_username = robloxUsername;
-    await supabaseAdmin.from("api_keys").update(updateData).eq("key", key);
+    try {
+      const updateData: Record<string, string> = { last_used_at: new Date().toISOString() };
+      if (robloxUsername) updateData.roblox_username = robloxUsername;
+      await supabaseAdmin.from("api_keys").update(updateData).eq("key", key);
+    } catch { /* columnas opcionales, no crítico */ }
 
     return NextResponse.json({
       valid: true,
