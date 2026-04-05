@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 
-const DISCORD_INVITE = process.env.NEXT_PUBLIC_DISCORD_INVITE || "https://discord.gg/tu-servidor";
+const DISCORD_INVITE = "https://discord.gg/B29pp4vm5G";
 
 function GetKeyContent() {
   const searchParams = useSearchParams();
