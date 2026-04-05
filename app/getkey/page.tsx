@@ -44,8 +44,7 @@
 
     if (!remaining || !expiresAt) return null;
 
-    const totalMs = new Date(expiresAt).getTime() - new Date(new Date(expiresAt).getTime() - msLeft).getTime();
-    const pct = Math.max(0, Math.min(100, (remaining / (msLeft > 0 ? msLeft : 1)) * 100));
+    const pct = Math.max(0, Math.min(100, (remaining / ((msLeft ?? remaining) > 0 ? (msLeft ?? remaining) : 1)) * 100));
 
     const days = Math.floor(remaining / 86400000);
     const hours = Math.floor((remaining % 86400000) / 3600000);
