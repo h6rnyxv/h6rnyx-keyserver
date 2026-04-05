@@ -73,12 +73,20 @@
   }
 
   function CheckKeyTab() {
-    const [keyInput, setKeyInput] = useState("");
+    const [keyInput, setKeyInput] = useState(() => {
+        if (typeof window !== "undefined") return localStorage.getItem("h6rnyx_key") || "";
+        return "";
+      });
     const [status, setStatus] = useState<KeyStatus | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
     const [copied, setCopied] = useState(false);
 
+
+    useEffect(() => {
+      if (keyInput) check();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
     const check = useCallback(async () => {
       if (!keyInput.trim()) return;
       setLoading(true);
@@ -95,6 +103,7 @@
           setError(data.message || "Key no encontrada.");
         } else {
           setStatus(data);
+          localStorage.setItem("h6rnyx_key", keyInput.trim());
         }
       } catch {
         setError("Error de conexión.");
@@ -210,6 +219,7 @@
           const data = await res.json();
           if (res.ok && data.key) {
             setKey(data.key);
+            localStorage.setItem("h6rnyx_key", data.key);
             setGetStatus("success");
           } else {
             setGetStatus("error");
