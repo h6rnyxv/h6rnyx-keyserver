@@ -5,6 +5,7 @@
   import { Suspense } from "react";
 
   const DISCORD_INVITE = "https://discord.gg/B29pp4vm5G";
+  const WORKINK_LINK = "https://work.ink/2tqZ/keyserver";
 
   const DiscordIcon = () => (
     <svg width="18" height="14" viewBox="0 0 71 55" fill="white" xmlns="http://www.w3.org/2000/svg">
@@ -18,39 +19,36 @@
   }
 
   type KeyStatus = {
-    found: boolean;
     active: boolean;
     expired: boolean;
     label: string | null;
     created_at: string;
     expires_at: string | null;
     last_used_at: string | null;
-    roblox_username: string | null;
     time_left: string | null;
     ms_left: number | null;
   };
 
   function TimeBar({ msLeft, expiresAt }: { msLeft: number | null; expiresAt: string | null }) {
-    const [remaining, setRemaining] = useState(msLeft);
+    const [remaining, setRemaining] = useState(msLeft ?? 0);
 
     useEffect(() => {
-      if (!msLeft || !expiresAt) return;
+      if (!expiresAt) return;
       const interval = setInterval(() => {
         const left = new Date(expiresAt).getTime() - Date.now();
         setRemaining(left > 0 ? left : 0);
       }, 1000);
       return () => clearInterval(interval);
-    }, [msLeft, expiresAt]);
+    }, [expiresAt]);
 
-    if (!remaining || !expiresAt) return null;
+    if (!expiresAt) return null;
 
-    const pct = Math.max(0, Math.min(100, (remaining / ((msLeft ?? remaining) > 0 ? (msLeft ?? remaining) : 1)) * 100));
-
+    const initial = msLeft ?? remaining;
+    const pct = Math.max(0, Math.min(100, initial > 0 ? (remaining / initial) * 100 : 0));
     const days = Math.floor(remaining / 86400000);
     const hours = Math.floor((remaining % 86400000) / 3600000);
     const mins = Math.floor((remaining % 3600000) / 60000);
     const secs = Math.floor((remaining % 60000) / 1000);
-
     const label = days > 0 ? `${days}d ${hours}h ${mins}m` : hours > 0 ? `${hours}h ${mins}m ${secs}s` : `${mins}m ${secs}s`;
 
     return (
@@ -62,279 +60,218 @@
         <div className="w-full bg-gray-700 rounded-full h-2">
           <div
             className="h-2 rounded-full transition-all duration-1000"
-            style={{
-              width: `${pct}%`,
-              background: pct > 50 ? "#6366f1" : pct > 20 ? "#f59e0b" : "#ef4444"
-            }}
+            style={{ width: `${pct}%`, background: pct > 50 ? "#6366f1" : pct > 20 ? "#f59e0b" : "#ef4444" }}
           />
         </div>
-      </div>
-    );
-  }
-
-  function CheckKeyTab() {
-    const [keyInput, setKeyInput] = useState(() => {
-        if (typeof window !== "undefined") return localStorage.getItem("h6rnyx_key") || "";
-        return "";
-      });
-    const [status, setStatus] = useState<KeyStatus | null>(null);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState("");
-    const [copied, setCopied] = useState(false);
-
-
-    useEffect(() => {
-      if (keyInput) check();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-    const check = useCallback(async () => {
-      if (!keyInput.trim()) return;
-      setLoading(true);
-      setError("");
-      setStatus(null);
-      try {
-        const res = await fetch("/api/keystatus", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ key: keyInput.trim() }),
-        });
-        const data = await res.json();
-        if (!res.ok || !data.found) {
-          setError(data.message || "Key no encontrada.");
-        } else {
-          setStatus(data);
-          localStorage.setItem("h6rnyx_key", keyInput.trim());
-        }
-      } catch {
-        setError("Error de conexión.");
-      } finally {
-        setLoading(false);
-      }
-    }, [keyInput]);
-
-    const copyKey = () => {
-      navigator.clipboard.writeText(keyInput.trim());
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    };
-
-    return (
-      <div>
-        <div className="flex gap-2 mb-6">
-          <input
-            type="text"
-            value={keyInput}
-            onChange={e => setKeyInput(e.target.value)}
-            onKeyDown={e => e.key === "Enter" && check()}
-            placeholder="Pega tu key aquí..."
-            className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm font-mono focus:outline-none focus:border-indigo-500"
-          />
-          <button
-            onClick={check}
-            disabled={loading || !keyInput.trim()}
-            className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-          >
-            {loading ? "..." : "Verificar"}
-          </button>
-        </div>
-
-        {error && (
-          <div className="bg-red-900/30 border border-red-700 rounded-xl p-4 text-red-300 text-sm">
-            ✗ {error}
-          </div>
-        )}
-
-        {status && (
-          <div className={`rounded-xl p-5 border ${status.active ? "bg-gray-900 border-indigo-700" : "bg-gray-900 border-red-700"}`}>
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <span className={`w-2.5 h-2.5 rounded-full ${status.active ? "bg-green-400" : "bg-red-400"}`} />
-                <span className={`text-sm font-semibold ${status.active ? "text-green-400" : "text-red-400"}`}>
-                  {status.active ? "Key Activa" : status.expired ? "Key Expirada" : "Key Inactiva"}
-                </span>
-              </div>
-              {status.label && (
-                <span className="text-xs bg-indigo-900 text-indigo-300 px-2 py-0.5 rounded-full">{status.label}</span>
-              )}
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <div className="bg-gray-800 rounded-lg p-3">
-                <p className="text-gray-500 text-xs mb-1">Último uso</p>
-                <p className="text-white font-medium">{fmt(status.last_used_at)}</p>
-              </div>
-              <div className="bg-gray-800 rounded-lg p-3">
-                <p className="text-gray-500 text-xs mb-1">Creada</p>
-                <p className="text-white font-medium">{fmt(status.created_at)}</p>
-              </div>
-              <div className="bg-gray-800 rounded-lg p-3">
-                <p className="text-gray-500 text-xs mb-1">Expira</p>
-                <p className="text-white font-medium">
-                  {status.expires_at ? fmt(status.expires_at) : "♾️ Lifetime"}
-                </p>
-              </div>
-            </div>
-
-            {status.active && status.expires_at && (
-              <TimeBar msLeft={status.ms_left} expiresAt={status.expires_at} />
-            )}
-
-            {status.active && !status.expires_at && (
-              <div className="mt-4 flex items-center gap-2 text-indigo-300 text-sm">
-                <span>♾️</span>
-                <span>Esta key no expira nunca</span>
-              </div>
-            )}
-
-            <button
-              onClick={copyKey}
-              className="mt-4 w-full bg-gray-700 hover:bg-gray-600 text-white py-2 rounded-lg text-sm transition-colors"
-            >
-              {copied ? "✓ Copiado" : "Copiar Key"}
-            </button>
-          </div>
-        )}
       </div>
     );
   }
 
   function GetKeyContent() {
     const searchParams = useSearchParams();
-    const token = searchParams.get("token");
-    const [tab, setTab] = useState<"get" | "check">(token ? "get" : "check");
-    const [getStatus, setGetStatus] = useState<"idle" | "loading" | "success" | "error">(token ? "loading" : "idle");
-    const [key, setKey] = useState<string | null>(null);
-    const [message, setMessage] = useState("");
+    const workinkToken = searchParams.get("token");
+
+    const [savedKey, setSavedKey] = useState<string | null>(null);
+    const [keyStatus, setKeyStatus] = useState<KeyStatus | null>(null);
+    const [loadingStatus, setLoadingStatus] = useState(false);
+    const [generatingKey, setGeneratingKey] = useState(false);
+    const [newKey, setNewKey] = useState<string | null>(null);
     const [copied, setCopied] = useState(false);
+    const [error, setError] = useState("");
+
+    const checkSavedKey = useCallback(async (key: string) => {
+      setLoadingStatus(true);
+      setError("");
+      try {
+        const res = await fetch("/api/keystatus", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ key }),
+        });
+        const data = await res.json();
+        if (res.ok && data.found) {
+          setKeyStatus(data);
+        } else {
+          localStorage.removeItem("h6rnyx_key");
+          setSavedKey(null);
+        }
+      } catch {
+        setError("Error de conexión.");
+      } finally {
+        setLoadingStatus(false);
+      }
+    }, []);
+
+    const generateFromWorkink = useCallback(async (token: string) => {
+      setGeneratingKey(true);
+      setError("");
+      try {
+        const res = await fetch("/api/generatekey", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ workink_token: token }),
+        });
+        const data = await res.json();
+        if (res.ok && data.key) {
+          localStorage.setItem("h6rnyx_key", data.key);
+          setSavedKey(data.key);
+          setNewKey(data.key);
+          await checkSavedKey(data.key);
+        } else {
+          setError(data.error || "Token inválido o ya utilizado.");
+        }
+      } catch {
+        setError("Error de conexión.");
+      } finally {
+        setGeneratingKey(false);
+      }
+    }, [checkSavedKey]);
 
     useEffect(() => {
-      if (!token) return;
-      const validate = async () => {
-        try {
-          const res = await fetch("/api/generatekey", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ workink_token: token }),
-          });
-          const data = await res.json();
-          if (res.ok && data.key) {
-            setKey(data.key);
-            localStorage.setItem("h6rnyx_key", data.key);
-            setGetStatus("success");
-          } else {
-            setGetStatus("error");
-            setMessage(data.error || "Token inválido o ya utilizado.");
-          }
-        } catch {
-          setGetStatus("error");
-          setMessage("Error de conexión. Intenta de nuevo.");
-        }
-      };
-      validate();
-    }, [token]);
+      const stored = localStorage.getItem("h6rnyx_key");
+      if (workinkToken) {
+        generateFromWorkink(workinkToken);
+      } else if (stored) {
+        setSavedKey(stored);
+        checkSavedKey(stored);
+      }
+    }, [workinkToken, generateFromWorkink, checkSavedKey]);
 
-    const copyKey = (k: string) => {
-      navigator.clipboard.writeText(k);
+    const copyKey = (key: string) => {
+      navigator.clipboard.writeText(key);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     };
+
+    const clearAndRenew = () => {
+      localStorage.removeItem("h6rnyx_key");
+      setSavedKey(null);
+      setKeyStatus(null);
+      setNewKey(null);
+      setError("");
+      window.location.href = WORKINK_LINK;
+    };
+
+    const isExpiredOrInactive = keyStatus && (!keyStatus.active || keyStatus.expired);
+    const isActive = keyStatus && keyStatus.active && !keyStatus.expired;
 
     return (
       <main className="max-w-lg mx-auto px-4 py-16">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-white">H6rnyx KeyServer</h1>
-          <p className="text-gray-500 text-sm mt-1">Sistema de keys para Anchored Alpha ESP</p>
+          <p className="text-gray-500 text-sm mt-1">Anchored Alpha ESP</p>
         </div>
 
-        <div className="flex gap-2 mb-6">
-          {([["get", "🔑 Obtener Key"], ["check", "🔍 Ver mi Key"]] as const).map(([t, label]) => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
-                tab === t ? "bg-indigo-600 text-white" : "bg-gray-800 text-gray-400 hover:text-white"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-
-        {tab === "get" && (
-          <div>
-            {getStatus === "idle" && (
-              <div className="bg-gray-900 rounded-xl p-6 border border-gray-800 text-center">
-                <p className="text-gray-300 text-sm mb-2">Para obtener una key, completa los pasos en work.ink</p>
-                <p className="text-gray-500 text-xs mb-5">Después serás redirigido aquí automáticamente con tu key</p>
-                <a
-                  href="https://work.ink/2tqZ/keyserver"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-block bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg font-medium transition-colors text-sm"
-                >
-                  Obtener Key →
-                </a>
-              </div>
-            )}
-
-            {getStatus === "loading" && (
-              <div className="bg-gray-900 rounded-xl p-8 border border-gray-800 text-center">
-                <div className="animate-spin w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full mx-auto mb-4" />
-                <p className="text-gray-400">Validando tu token con work.ink...</p>
-              </div>
-            )}
-
-            {getStatus === "success" && key && (
-              <div className="bg-gray-900 rounded-xl p-6 border border-green-700">
-                <div className="text-center mb-5">
-                  <div className="text-green-400 text-4xl mb-2">✓</div>
-                  <p className="text-green-300 font-semibold text-lg">Key generada exitosamente</p>
-                  <p className="text-gray-500 text-xs mt-1">Guárdala ahora, no se mostrará de nuevo</p>
-                </div>
-                <div className="bg-gray-800 rounded-lg p-4 mb-4">
-                  <code className="text-indigo-300 text-sm break-all">{key}</code>
-                </div>
-                <div className="flex flex-col gap-2">
-                  <button
-                    onClick={() => copyKey(key)}
-                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg font-medium transition-colors text-sm"
-                  >
-                    {copied ? "✓ Copiado" : "Copiar Key"}
-                  </button>
-                  <a
-                    href={DISCORD_INVITE}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-full flex items-center justify-center gap-2 bg-[#5865F2] hover:bg-[#4752c4] text-white px-6 py-2 rounded-lg font-medium transition-colors text-sm"
-                  >
-                    <DiscordIcon /> Unirse al Discord
-                  </a>
-                </div>
-              </div>
-            )}
-
-            {getStatus === "error" && (
-              <div className="bg-gray-900 rounded-xl p-6 border border-red-700 text-center">
-                <div className="text-red-400 text-4xl mb-2">✗</div>
-                <p className="text-red-300 font-semibold mb-2">Error</p>
-                <p className="text-gray-400 text-sm mb-5">{message}</p>
-                <a
-                  href={DISCORD_INVITE}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-2 bg-[#5865F2] hover:bg-[#4752c4] text-white px-6 py-2 rounded-lg font-medium transition-colors text-sm mb-3"
-                >
-                  <DiscordIcon /> Soporte en Discord
-                </a>
-                <a href="/getkey" className="inline-block text-gray-500 hover:text-gray-400 text-sm transition-colors">
-                  Intentar de nuevo
-                </a>
-              </div>
-            )}
+        {/* Loading state */}
+        {(loadingStatus || generatingKey) && (
+          <div className="bg-gray-900 rounded-xl p-8 border border-gray-800 text-center">
+            <div className="animate-spin w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full mx-auto mb-4" />
+            <p className="text-gray-400 text-sm">
+              {generatingKey ? "Generando tu key..." : "Verificando tu key..."}
+            </p>
           </div>
         )}
 
-        {tab === "check" && <CheckKeyTab />}
+        {/* Error */}
+        {error && !loadingStatus && !generatingKey && (
+          <div className="bg-red-900/30 border border-red-700 rounded-xl p-5 text-center mb-4">
+            <p className="text-red-300 text-sm mb-3">{error}</p>
+            <a href={DISCORD_INVITE} target="_blank" rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 bg-[#5865F2] hover:bg-[#4752c4] text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+              <DiscordIcon /> Soporte en Discord
+            </a>
+          </div>
+        )}
+
+        {/* Active key */}
+        {isActive && !loadingStatus && (
+          <div className="bg-gray-900 rounded-xl p-6 border border-indigo-700">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-green-400 animate-pulse" />
+                <span className="text-green-400 text-sm font-semibold">Key Activa</span>
+              </div>
+              {keyStatus.label && (
+                <span className="text-xs bg-indigo-900 text-indigo-300 px-2 py-0.5 rounded-full">{keyStatus.label}</span>
+              )}
+            </div>
+
+            {newKey && (
+              <div className="mb-4">
+                <p className="text-gray-500 text-xs mb-2">Tu nueva key — guárdala</p>
+                <div className="bg-gray-800 rounded-lg p-3 mb-2">
+                  <code className="text-indigo-300 text-sm break-all">{newKey}</code>
+                </div>
+                <button onClick={() => copyKey(newKey)}
+                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-lg text-sm font-medium transition-colors">
+                  {copied ? "✓ Copiado" : "Copiar Key"}
+                </button>
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="bg-gray-800 rounded-lg p-3">
+                <p className="text-gray-500 text-xs mb-1">Último uso</p>
+                <p className="text-white font-medium">{fmt(keyStatus.last_used_at)}</p>
+              </div>
+              <div className="bg-gray-800 rounded-lg p-3">
+                <p className="text-gray-500 text-xs mb-1">Expira</p>
+                <p className="text-white font-medium">
+                  {keyStatus.expires_at ? fmt(keyStatus.expires_at) : "♾️ Lifetime"}
+                </p>
+              </div>
+            </div>
+
+            {keyStatus.expires_at
+              ? <TimeBar msLeft={keyStatus.ms_left} expiresAt={keyStatus.expires_at} />
+              : <p className="mt-4 text-indigo-300 text-sm text-center">♾️ Esta key no expira nunca</p>
+            }
+
+            <div className="mt-5 flex flex-col gap-2">
+              <a href={DISCORD_INVITE} target="_blank" rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 bg-[#5865F2] hover:bg-[#4752c4] text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                <DiscordIcon /> Discord
+              </a>
+            </div>
+          </div>
+        )}
+
+        {/* Expired / inactive key */}
+        {isExpiredOrInactive && !loadingStatus && (
+          <div className="bg-gray-900 rounded-xl p-6 border border-red-700">
+            <div className="flex items-center gap-2 mb-4">
+              <span className="w-2.5 h-2.5 rounded-full bg-red-400" />
+              <span className="text-red-400 text-sm font-semibold">
+                {keyStatus.expired ? "Key Expirada" : "Key Inactiva"}
+              </span>
+            </div>
+            <p className="text-gray-400 text-sm mb-5">
+              {keyStatus.expired
+                ? "Tu key ha expirado. Obtén una nueva gratis completando los pasos de work.ink."
+                : "Tu key fue desactivada. Contacta soporte si crees que es un error."}
+            </p>
+            <button onClick={clearAndRenew}
+              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-lg text-sm font-medium transition-colors mb-2">
+              Obtener nueva key →
+            </button>
+            <a href={DISCORD_INVITE} target="_blank" rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2 bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+              <DiscordIcon /> Soporte en Discord
+            </a>
+          </div>
+        )}
+
+        {/* No key saved */}
+        {!savedKey && !loadingStatus && !generatingKey && !error && (
+          <div className="bg-gray-900 rounded-xl p-6 border border-gray-800 text-center">
+            <p className="text-gray-300 text-sm mb-2">No tienes ninguna key activa</p>
+            <p className="text-gray-500 text-xs mb-6">Completa los pasos de work.ink para obtener una gratis</p>
+            <a href={WORKINK_LINK} target="_blank" rel="noopener noreferrer"
+              className="inline-block bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg font-medium transition-colors text-sm">
+              Obtener Key →
+            </a>
+          </div>
+        )}
       </main>
     );
   }
