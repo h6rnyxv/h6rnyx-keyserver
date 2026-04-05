@@ -34,6 +34,7 @@ export default function AdminPage() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [tab, setTab] = useState<"logs" | "generate">("logs");
   const [deletingKey, setDeletingKey] = useState<string | null>(null);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   const [expiresIn, setExpiresIn] = useState("lifetime");
   const [label, setLabel] = useState("");
@@ -83,6 +84,12 @@ export default function AdminPage() {
     } finally {
       setDeletingKey(null);
     }
+  };
+
+  const copyKey = (key: string) => {
+    navigator.clipboard.writeText(key);
+    setCopiedKey(key);
+    setTimeout(() => setCopiedKey(null), 2000);
   };
 
   const generate = async () => {
@@ -206,7 +213,18 @@ export default function AdminPage() {
                   const active = k.is_active && !expired;
                   return (
                     <tr key={k.id} className="border-b border-gray-800/50 hover:bg-gray-800/30">
-                      <td className="px-4 py-3 font-mono text-indigo-300 text-xs">{k.key.slice(0, 20)}…</td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-indigo-300 text-xs">{k.key.slice(0, 20)}…</span>
+                          <button
+                            onClick={() => copyKey(k.key)}
+                            className="text-gray-500 hover:text-indigo-400 transition-colors text-xs"
+                            title="Copiar key completa"
+                          >
+                            {copiedKey === k.key ? "✓" : "⎘"}
+                          </button>
+                        </div>
+                      </td>
                       <td className="px-4 py-3 text-gray-400">{k.label || "—"}</td>
                       <td className="px-4 py-3">
                         <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
@@ -241,10 +259,10 @@ export default function AdminPage() {
       )}
 
       {tab === "generate" && (
-        <div className="max-w-sm">
+        <div className="max-w-md">
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 space-y-4">
             <div>
-              <label className="text-gray-400 text-xs uppercase mb-1 block">Tipo</label>
+              <label className="text-gray-400 text-xs uppercase mb-1 block">Duración</label>
               <select
                 value={expiresIn}
                 onChange={e => setExpiresIn(e.target.value)}
@@ -284,10 +302,10 @@ export default function AdminPage() {
               </div>
               <p className="text-gray-500 text-xs mb-3">Expira: {newKey.expires_at === "never" ? "Nunca" : newKey.expires_at}</p>
               <button
-                onClick={() => { navigator.clipboard.writeText(newKey.key); alert("Copiado"); }}
+                onClick={() => copyKey(newKey.key)}
                 className="w-full bg-gray-700 hover:bg-gray-600 text-white py-2 rounded-lg text-sm transition-colors"
               >
-                Copiar
+                {copiedKey === newKey.key ? "✓ Copiado" : "Copiar"}
               </button>
             </div>
           )}
