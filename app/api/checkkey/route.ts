@@ -44,11 +44,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    await supabaseAdmin
-      .from("api_keys")
-      .update({ last_used_at: new Date().toISOString() })
-      .eq("key", key);
-
     return NextResponse.json({
       valid: true,
       message: "Key válida y activa",
