@@ -152,10 +152,6 @@
 
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div className="bg-gray-800 rounded-lg p-3">
-                <p className="text-gray-500 text-xs mb-1">Roblox User</p>
-                <p className="text-white font-medium">{status.roblox_username || "—"}</p>
-              </div>
-              <div className="bg-gray-800 rounded-lg p-3">
                 <p className="text-gray-500 text-xs mb-1">Último uso</p>
                 <p className="text-white font-medium">{fmt(status.last_used_at)}</p>
               </div>
