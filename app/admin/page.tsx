@@ -41,6 +41,7 @@ export default function AdminPage() {
   const [newKey, setNewKey] = useState<{ key: string; expires_at: string } | null>(null);
   const [genError, setGenError] = useState("");
   const [genLoading, setGenLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const login = async () => {
     setLoading(true);
