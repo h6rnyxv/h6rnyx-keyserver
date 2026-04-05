@@ -53,11 +53,11 @@ export async function POST(req: NextRequest) {
     }
 
     const key = `h6x-${uuidv4().replace(/-/g, "").slice(0, 32)}`;
-    const expires_at = isAdminRequest ? getExpiresAt(expiresIn) : null;
+    const expires_at = isAdminRequest ? getExpiresAt(expiresIn) : getExpiresAt("2h");
 
     const { error } = await supabaseAdmin.from("api_keys").insert({
       key,
-      label: label || (isAdminRequest ? `Bot | ${expiresIn}` : null),
+      label: label || (isAdminRequest ? `Bot | ${expiresIn}` : "work.ink | 2h"),
       is_active: true,
       expires_at,
     });
