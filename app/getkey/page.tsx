@@ -266,8 +266,7 @@
           <div className="bg-gray-900 rounded-xl p-6 border border-gray-800 text-center">
             <p className="text-gray-300 text-sm mb-2">No tienes ninguna key activa</p>
             <p className="text-gray-500 text-xs mb-6">Completa los pasos de work.ink para obtener una gratis</p>
-            <a href={WORKINK_LINK} target="_blank" rel="noopener noreferrer"
-              className="inline-block bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg font-medium transition-colors text-sm">
+            <a href="/" className="inline-block bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg font-medium transition-colors text-sm">
               Obtener Key →
             </a>
           </div>
