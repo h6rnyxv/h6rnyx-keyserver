@@ -56,13 +56,20 @@ export default function AdminPage() {
   const [genLoading, setGenLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Config tab
+  // Config — duración
   const [currentDuration, setCurrentDuration] = useState<string | null>(null);
   const [selectedDuration, setSelectedDuration] = useState("2h");
   const [customDuration, setCustomDuration] = useState("");
   const [durSaving, setDurSaving] = useState(false);
   const [durResult, setDurResult] = useState<{ ok: boolean; msg: string } | null>(null);
   const [loadingConfig, setLoadingConfig] = useState(false);
+
+  // Config — script
+  const [scriptContent, setScriptContent] = useState("");
+  const [scriptLoading, setScriptLoading] = useState(false);
+  const [scriptSaving, setScriptSaving] = useState(false);
+  const [scriptResult, setScriptResult] = useState<{ ok: boolean; msg: string } | null>(null);
+  const [scriptLoaded, setScriptLoaded] = useState(false);
 
   const login = async () => {
     setLoading(true);
@@ -93,11 +100,8 @@ export default function AdminPage() {
         body: JSON.stringify({ admin_key: adminKey }),
       });
       if (res.ok) setStats(await res.json());
-    } catch {
-      // silently ignore
-    } finally {
-      setRefreshing(false);
-    }
+    } catch { /* ignore */ }
+    finally { setRefreshing(false); }
   };
 
   const loadConfig = async () => {
@@ -110,18 +114,32 @@ export default function AdminPage() {
         const data = await res.json();
         setCurrentDuration(data.duration);
         setSelectedDuration(data.duration);
-        setCustomDuration(data.duration);
+        setCustomDuration("");
       }
-    } catch {
-      // ignore
-    } finally {
-      setLoadingConfig(false);
-    }
+    } catch { /* ignore */ }
+    finally { setLoadingConfig(false); }
+  };
+
+  const loadScript = async () => {
+    setScriptLoading(true);
+    setScriptResult(null);
+    try {
+      const res = await fetch("/api/admin/setloader", {
+        headers: { "x-admin-key": adminKey },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setScriptContent(data.script ?? "");
+        setScriptLoaded(true);
+      }
+    } catch { /* ignore */ }
+    finally { setScriptLoading(false); }
   };
 
   const switchTab = (t: "logs" | "generate" | "config") => {
     setTab(t);
     if (t === "config" && currentDuration === null) loadConfig();
+    if (t === "config" && !scriptLoaded) loadScript();
   };
 
   const deleteKey = async (key: string) => {
@@ -134,9 +152,7 @@ export default function AdminPage() {
         body: JSON.stringify({ admin_key: adminKey, key }),
       });
       if (res.ok) await refreshStats();
-    } finally {
-      setDeletingKey(null);
-    }
+    } finally { setDeletingKey(null); }
   };
 
   const copyKey = (key: string) => {
@@ -160,11 +176,8 @@ export default function AdminPage() {
       setNewKey({ key: data.key, expires_at: data.expires_at });
       setLabel("");
       await refreshStats();
-    } catch {
-      setGenError("Error de conexión.");
-    } finally {
-      setGenLoading(false);
-    }
+    } catch { setGenError("Error de conexión."); }
+    finally { setGenLoading(false); }
   };
 
   const saveDuration = async () => {
@@ -183,16 +196,30 @@ export default function AdminPage() {
         setDurResult({ ok: false, msg: data.error || "Error al guardar." });
       } else {
         setCurrentDuration(duration);
-        setDurResult({
-          ok: true,
-          msg: `✅ Duración guardada: ${duration}. ${data.updatedCount} key(s) actualizada(s).`,
-        });
+        setDurResult({ ok: true, msg: `✅ Guardado: ${duration}. ${data.updatedCount} key(s) actualizada(s).` });
       }
-    } catch {
-      setDurResult({ ok: false, msg: "Error de conexión." });
-    } finally {
-      setDurSaving(false);
-    }
+    } catch { setDurResult({ ok: false, msg: "Error de conexión." }); }
+    finally { setDurSaving(false); }
+  };
+
+  const saveScript = async () => {
+    if (!scriptContent.trim()) return;
+    setScriptSaving(true);
+    setScriptResult(null);
+    try {
+      const res = await fetch("/api/admin/setloader", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ admin_key: adminKey, script: scriptContent }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setScriptResult({ ok: false, msg: data.error || "Error al guardar." });
+      } else {
+        setScriptResult({ ok: true, msg: `✅ Script guardado (${data.bytes} bytes). URL: /loader` });
+      }
+    } catch { setScriptResult({ ok: false, msg: "Error de conexión." }); }
+    finally { setScriptSaving(false); }
   };
 
   if (!authed) {
@@ -375,7 +402,6 @@ export default function AdminPage() {
               {genLoading ? "Generando..." : "Generar Key"}
             </button>
           </div>
-
           {newKey && (
             <div className="mt-4 bg-gray-900 rounded-xl p-5 border border-green-700">
               <p className="text-green-400 font-semibold mb-3">✓ Key generada</p>
@@ -397,27 +423,24 @@ export default function AdminPage() {
 
       {/* ── CONFIG ── */}
       {tab === "config" && (
-        <div className="max-w-md space-y-6">
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 space-y-5">
+        <div className="space-y-6">
+
+          {/* Duración */}
+          <div className="max-w-md bg-gray-900 border border-gray-800 rounded-xl p-6 space-y-5">
             <div>
               <h2 className="text-white font-semibold mb-1">Duración por defecto de keys</h2>
               <p className="text-gray-500 text-xs leading-relaxed">
-                Todas las keys generadas por usuarios vía work.ink usarán esta duración.
-                Al guardar, las keys activas con menos tiempo restante serán extendidas hasta la nueva duración.
+                Duración que tendrán las keys generadas por usuarios. Al guardar, las keys activas con menos tiempo restante serán extendidas.
               </p>
             </div>
-
             {loadingConfig ? (
-              <p className="text-gray-500 text-sm">Cargando configuración actual...</p>
+              <p className="text-gray-500 text-sm">Cargando...</p>
             ) : (
               <div className="bg-gray-800 rounded-lg px-4 py-3 flex items-center justify-between">
                 <span className="text-gray-400 text-xs uppercase">Duración actual</span>
-                <span className="text-indigo-300 font-mono font-semibold">
-                  {currentDuration ?? "—"}
-                </span>
+                <span className="text-indigo-300 font-mono font-semibold">{currentDuration ?? "—"}</span>
               </div>
             )}
-
             <div>
               <label className="text-gray-400 text-xs uppercase mb-1 block">Nueva duración</label>
               <select
@@ -433,14 +456,10 @@ export default function AdminPage() {
                 type="text"
                 value={customDuration}
                 onChange={e => setCustomDuration(e.target.value)}
-                placeholder="O escribe manualmente: ej 3h, 6h, 2d..."
+                placeholder="O escribe manualmente: 3h, 6h, 2d..."
                 className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500"
               />
-              <p className="text-gray-600 text-xs mt-1">
-                Formato: número + h (horas), d (días), m (minutos). Ej: 5h, 2d, 30m
-              </p>
             </div>
-
             <button
               onClick={saveDuration}
               disabled={durSaving}
@@ -448,7 +467,6 @@ export default function AdminPage() {
             >
               {durSaving ? "Guardando..." : "Guardar y aplicar a keys activas"}
             </button>
-
             {durResult && (
               <div className={`rounded-lg px-4 py-3 text-sm ${
                 durResult.ok
@@ -460,15 +478,63 @@ export default function AdminPage() {
             )}
           </div>
 
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
-            <h3 className="text-white font-semibold mb-2 text-sm">¿Cómo funciona?</h3>
-            <ul className="text-gray-500 text-xs space-y-1.5">
-              <li>• Las nuevas keys generadas usarán la duración que configures aquí</li>
-              <li>• Las keys activas con <strong className="text-gray-400">menos tiempo restante</strong> que la nueva duración son extendidas a la nueva duración desde ahora</li>
-              <li>• Las keys con <strong className="text-gray-400">más tiempo</strong> del nuevo límite no se tocan</li>
-              <li>• Las keys <strong className="text-gray-400">lifetime</strong> (sin expiración) nunca se modifican</li>
-            </ul>
+          {/* Script Editor */}
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 space-y-4">
+            <div>
+              <h2 className="text-white font-semibold mb-1">Script del Loader</h2>
+              <p className="text-gray-500 text-xs leading-relaxed">
+                El script que se sirve en{" "}
+                <code className="text-indigo-400 bg-gray-800 px-1 py-0.5 rounded">
+                  https://h6rnyx-keyserver.vercel.app/loader
+                </code>
+                . Pega aquí el nuevo Lua y guarda.
+              </p>
+            </div>
+
+            {scriptLoading ? (
+              <p className="text-gray-500 text-sm">Cargando script actual...</p>
+            ) : (
+              <>
+                <textarea
+                  value={scriptContent}
+                  onChange={e => setScriptContent(e.target.value)}
+                  placeholder="Pega aquí tu script de Lua..."
+                  rows={20}
+                  spellCheck={false}
+                  className="w-full bg-gray-950 border border-gray-700 rounded-lg px-4 py-3 text-green-300 text-xs font-mono focus:outline-none focus:border-indigo-500 resize-y"
+                />
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-600 text-xs">{scriptContent.length.toLocaleString()} chars</span>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={loadScript}
+                      disabled={scriptLoading}
+                      className="bg-gray-800 hover:bg-gray-700 text-gray-300 px-4 py-2 rounded-lg text-sm transition-colors"
+                    >
+                      ↻ Recargar
+                    </button>
+                    <button
+                      onClick={saveScript}
+                      disabled={scriptSaving || !scriptContent.trim()}
+                      className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white px-5 py-2 rounded-lg text-sm font-medium transition-colors"
+                    >
+                      {scriptSaving ? "Guardando..." : "Guardar script"}
+                    </button>
+                  </div>
+                </div>
+                {scriptResult && (
+                  <div className={`rounded-lg px-4 py-3 text-sm ${
+                    scriptResult.ok
+                      ? "bg-green-900/30 border border-green-700 text-green-300"
+                      : "bg-red-900/30 border border-red-700 text-red-300"
+                  }`}>
+                    {scriptResult.msg}
+                  </div>
+                )}
+              </>
+            )}
           </div>
+
         </div>
       )}
     </main>
