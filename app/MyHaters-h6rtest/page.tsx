@@ -26,22 +26,43 @@ function fmt(date: string | null) {
   return new Date(date).toLocaleString("es", { dateStyle: "short", timeStyle: "short" });
 }
 
+const DURATION_OPTIONS = [
+  { value: "lifetime", label: "♾️ Lifetime (permanente)" },
+  { value: "1h",  label: "⏱️ 1 hora" },
+  { value: "2h",  label: "⏱️ 2 horas" },
+  { value: "3h",  label: "⏱️ 3 horas" },
+  { value: "5h",  label: "⏱️ 5 horas" },
+  { value: "12h", label: "⏱️ 12 horas" },
+  { value: "24h", label: "⏱️ 24 horas" },
+  { value: "7d",  label: "📅 7 días" },
+  { value: "30d", label: "📅 30 días" },
+];
+
 export default function AdminPage() {
   const [adminKey, setAdminKey] = useState("");
   const [authed, setAuthed] = useState(false);
   const [authError, setAuthError] = useState("");
   const [loading, setLoading] = useState(false);
   const [stats, setStats] = useState<Stats | null>(null);
-  const [tab, setTab] = useState<"logs" | "generate">("logs");
+  const [tab, setTab] = useState<"logs" | "generate" | "config">("logs");
   const [deletingKey, setDeletingKey] = useState<string | null>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
+  // Generate tab
   const [expiresIn, setExpiresIn] = useState("lifetime");
   const [label, setLabel] = useState("");
   const [newKey, setNewKey] = useState<{ key: string; expires_at: string } | null>(null);
   const [genError, setGenError] = useState("");
   const [genLoading, setGenLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Config tab
+  const [currentDuration, setCurrentDuration] = useState<string | null>(null);
+  const [selectedDuration, setSelectedDuration] = useState("2h");
+  const [customDuration, setCustomDuration] = useState("");
+  const [durSaving, setDurSaving] = useState(false);
+  const [durResult, setDurResult] = useState<{ ok: boolean; msg: string } | null>(null);
+  const [loadingConfig, setLoadingConfig] = useState(false);
 
   const login = async () => {
     setLoading(true);
@@ -73,10 +94,34 @@ export default function AdminPage() {
       });
       if (res.ok) setStats(await res.json());
     } catch {
-      // silently ignore network errors
+      // silently ignore
     } finally {
       setRefreshing(false);
     }
+  };
+
+  const loadConfig = async () => {
+    setLoadingConfig(true);
+    try {
+      const res = await fetch("/api/admin/setduration", {
+        headers: { "x-admin-key": adminKey },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setCurrentDuration(data.duration);
+        setSelectedDuration(data.duration);
+        setCustomDuration(data.duration);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setLoadingConfig(false);
+    }
+  };
+
+  const switchTab = (t: "logs" | "generate" | "config") => {
+    setTab(t);
+    if (t === "config" && currentDuration === null) loadConfig();
   };
 
   const deleteKey = async (key: string) => {
@@ -119,6 +164,34 @@ export default function AdminPage() {
       setGenError("Error de conexión.");
     } finally {
       setGenLoading(false);
+    }
+  };
+
+  const saveDuration = async () => {
+    const duration = customDuration.trim() || selectedDuration;
+    if (!duration) return;
+    setDurSaving(true);
+    setDurResult(null);
+    try {
+      const res = await fetch("/api/admin/setduration", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ admin_key: adminKey, duration }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setDurResult({ ok: false, msg: data.error || "Error al guardar." });
+      } else {
+        setCurrentDuration(duration);
+        setDurResult({
+          ok: true,
+          msg: `✅ Duración guardada: ${duration}. ${data.updatedCount} key(s) actualizada(s).`,
+        });
+      }
+    } catch {
+      setDurResult({ ok: false, msg: "Error de conexión." });
+    } finally {
+      setDurSaving(false);
     }
   };
 
@@ -187,19 +260,20 @@ export default function AdminPage() {
       )}
 
       <div className="flex gap-2 mb-6">
-        {(["logs", "generate"] as const).map(t => (
+        {(["logs", "generate", "config"] as const).map(t => (
           <button
             key={t}
-            onClick={() => setTab(t)}
+            onClick={() => switchTab(t)}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
               tab === t ? "bg-indigo-600 text-white" : "bg-gray-800 text-gray-400 hover:text-white"
             }`}
           >
-            {t === "logs" ? "📋 Log de Keys" : "➕ Generar Key"}
+            {t === "logs" ? "📋 Log de Keys" : t === "generate" ? "➕ Generar Key" : "⚙️ Configurar"}
           </button>
         ))}
       </div>
 
+      {/* ── LOGS ── */}
       {tab === "logs" && stats && (
         <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
           <div className="overflow-x-auto">
@@ -267,6 +341,7 @@ export default function AdminPage() {
         </div>
       )}
 
+      {/* ── GENERATE ── */}
       {tab === "generate" && (
         <div className="max-w-md">
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 space-y-4">
@@ -277,11 +352,9 @@ export default function AdminPage() {
                 onChange={e => setExpiresIn(e.target.value)}
                 className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500"
               >
-                <option value="lifetime">♾️ Lifetime (permanente)</option>
-                <option value="2h">⏱️ 2 horas</option>
-                <option value="24h">⏱️ 24 horas</option>
-                <option value="7d">📅 7 días</option>
-                <option value="30d">📅 30 días</option>
+                {DURATION_OPTIONS.map(o => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
               </select>
             </div>
             <div>
@@ -319,6 +392,83 @@ export default function AdminPage() {
             </div>
           )}
           {genError && <p className="mt-3 text-red-400 text-sm">{genError}</p>}
+        </div>
+      )}
+
+      {/* ── CONFIG ── */}
+      {tab === "config" && (
+        <div className="max-w-md space-y-6">
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 space-y-5">
+            <div>
+              <h2 className="text-white font-semibold mb-1">Duración por defecto de keys</h2>
+              <p className="text-gray-500 text-xs leading-relaxed">
+                Todas las keys generadas por usuarios vía work.ink usarán esta duración.
+                Al guardar, las keys activas con menos tiempo restante serán extendidas hasta la nueva duración.
+              </p>
+            </div>
+
+            {loadingConfig ? (
+              <p className="text-gray-500 text-sm">Cargando configuración actual...</p>
+            ) : (
+              <div className="bg-gray-800 rounded-lg px-4 py-3 flex items-center justify-between">
+                <span className="text-gray-400 text-xs uppercase">Duración actual</span>
+                <span className="text-indigo-300 font-mono font-semibold">
+                  {currentDuration ?? "—"}
+                </span>
+              </div>
+            )}
+
+            <div>
+              <label className="text-gray-400 text-xs uppercase mb-1 block">Nueva duración</label>
+              <select
+                value={selectedDuration}
+                onChange={e => { setSelectedDuration(e.target.value); setCustomDuration(""); }}
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500 mb-2"
+              >
+                {DURATION_OPTIONS.map(o => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+              <input
+                type="text"
+                value={customDuration}
+                onChange={e => setCustomDuration(e.target.value)}
+                placeholder="O escribe manualmente: ej 3h, 6h, 2d..."
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500"
+              />
+              <p className="text-gray-600 text-xs mt-1">
+                Formato: número + h (horas), d (días), m (minutos). Ej: 5h, 2d, 30m
+              </p>
+            </div>
+
+            <button
+              onClick={saveDuration}
+              disabled={durSaving}
+              className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white py-2 rounded-lg font-medium transition-colors"
+            >
+              {durSaving ? "Guardando..." : "Guardar y aplicar a keys activas"}
+            </button>
+
+            {durResult && (
+              <div className={`rounded-lg px-4 py-3 text-sm ${
+                durResult.ok
+                  ? "bg-green-900/30 border border-green-700 text-green-300"
+                  : "bg-red-900/30 border border-red-700 text-red-300"
+              }`}>
+                {durResult.msg}
+              </div>
+            )}
+          </div>
+
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+            <h3 className="text-white font-semibold mb-2 text-sm">¿Cómo funciona?</h3>
+            <ul className="text-gray-500 text-xs space-y-1.5">
+              <li>• Las nuevas keys generadas usarán la duración que configures aquí</li>
+              <li>• Las keys activas con <strong className="text-gray-400">menos tiempo restante</strong> que la nueva duración son extendidas a la nueva duración desde ahora</li>
+              <li>• Las keys con <strong className="text-gray-400">más tiempo</strong> del nuevo límite no se tocan</li>
+              <li>• Las keys <strong className="text-gray-400">lifetime</strong> (sin expiración) nunca se modifican</li>
+            </ul>
+          </div>
         </div>
       )}
     </main>
