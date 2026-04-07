@@ -1,9 +1,10 @@
 "use client";
 
-  import { useState } from "react";
+  import { useState, useEffect, useCallback, Suspense } from "react";
+  import { useSearchParams, useRouter } from "next/navigation";
 
-  const WORKINK_LINK = "https://work.ink/2tqZ/keyserver";
   const DISCORD_INVITE = "https://discord.gg/B29pp4vm5G";
+  const WORKINK_LINK  = "https://work.ink/2tqZ/keyserver";
 
   const DiscordIcon = () => (
     <svg width="20" height="16" viewBox="0 0 71 55" fill="white" xmlns="http://www.w3.org/2000/svg">
@@ -11,8 +12,40 @@
     </svg>
   );
 
-  export default function Home() {
-    const [step1Done, setStep1Done] = useState(false);
+  function HomeContent() {
+    const searchParams = useSearchParams();
+    const router = useRouter();
+
+    const [discordVerified, setDiscordVerified] = useState(false);
+    const [checkingVerify, setCheckingVerify] = useState(true);
+    const [error, setError] = useState("");
+
+    const checkDiscordCookie = useCallback(async () => {
+      try {
+        const res = await fetch("/api/discord/verify", { method: "POST" });
+        const data = await res.json();
+        setDiscordVerified(data.verified === true);
+      } catch {
+        setDiscordVerified(false);
+      } finally {
+        setCheckingVerify(false);
+      }
+    }, []);
+
+    useEffect(() => {
+      const verified = searchParams.get("verified");
+      const err = searchParams.get("error");
+
+      if (err === "token_invalid") setError("❌ El link expiró o ya fue usado. Corre /verificar de nuevo en Discord.");
+      if (err === "token_missing") setError("❌ Link inválido. Usa /verificar en el servidor de Discord.");
+
+      if (verified === "1") {
+        // Viene de redireccion post-verificacion, limpiar URL
+        router.replace("/");
+      }
+
+      checkDiscordCookie();
+    }, [searchParams, checkDiscordCookie, router]);
 
     return (
       <main className="max-w-lg mx-auto px-4 py-16">
@@ -21,53 +54,93 @@
           <p className="text-gray-500 text-sm mt-1">Anchored Alpha ESP — Obtén tu key gratis</p>
         </div>
 
+        {error && (
+          <div className="bg-red-900/30 border border-red-700 rounded-xl p-4 text-center mb-5">
+            <p className="text-red-300 text-sm">{error}</p>
+          </div>
+        )}
+
         <div className="space-y-4">
-          {/* Step 1 */}
-          <div className={`bg-gray-900 rounded-xl p-5 border transition-colors ${step1Done ? "border-green-700" : "border-gray-800"}`}>
+
+          {/* Paso 1: Unirse al Discord */}
+          <div className="bg-gray-900 rounded-xl p-5 border border-gray-800">
             <div className="flex items-center gap-3 mb-3">
-              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${step1Done ? "bg-green-500 text-white" : "bg-indigo-600 text-white"}`}>
-                {step1Done ? "✓" : "1"}
+              <div className="w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold shrink-0 bg-indigo-600 text-white">
+                1
               </div>
               <div>
                 <p className="text-white font-medium text-sm">Únete al servidor de Discord</p>
-                <p className="text-gray-500 text-xs">Necesitas estar en el servidor para recibir soporte</p>
+                <p className="text-gray-500 text-xs">Necesitas estar en el servidor para continuar</p>
               </div>
             </div>
             <a
               href={DISCORD_INVITE}
               target="_blank"
               rel="noopener noreferrer"
-              onClick={() => setStep1Done(true)}
               className="flex items-center justify-center gap-2 bg-[#5865F2] hover:bg-[#4752c4] text-white px-4 py-2.5 rounded-lg font-medium transition-colors text-sm w-full"
             >
               <DiscordIcon />
-              {step1Done ? "Unido al Discord ✓" : "Unirse al Discord"}
+              Unirse al Discord
             </a>
           </div>
 
-          {/* Step 2 */}
-          <div className={`bg-gray-900 rounded-xl p-5 border transition-all ${!step1Done ? "opacity-50 border-gray-800" : "border-indigo-700"}`}>
+          {/* Paso 2: Verificar con el bot */}
+          <div className={`bg-gray-900 rounded-xl p-5 border transition-all ${discordVerified ? "border-green-700" : "border-gray-800"}`}>
             <div className="flex items-center gap-3 mb-3">
-              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${step1Done ? "bg-indigo-600 text-white" : "bg-gray-700 text-gray-400"}`}>
-                2
+              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${discordVerified ? "bg-green-500 text-white" : "bg-indigo-600 text-white"}`}>
+                {discordVerified ? "✓" : "2"}
               </div>
               <div>
-                <p className={`font-medium text-sm ${step1Done ? "text-white" : "text-gray-500"}`}>Obtén tu key en work.ink</p>
+                <p className={`font-medium text-sm ${discordVerified ? "text-green-400" : "text-white"}`}>
+                  {discordVerified ? "Discord verificado ✓" : "Verifica que estás en el servidor"}
+                </p>
+                <p className="text-gray-500 text-xs">
+                  {discordVerified
+                    ? "El bot confirmó tu membresía"
+                    : "Escribe /verificar en cualquier canal del servidor"}
+                </p>
+              </div>
+            </div>
+            {!discordVerified && (
+              <div className="bg-gray-800 rounded-lg px-4 py-3 text-center">
+                {checkingVerify ? (
+                  <p className="text-gray-400 text-xs">Verificando...</p>
+                ) : (
+                  <p className="text-gray-400 text-xs leading-relaxed">
+                    En el servidor de Discord, escribe el comando{" "}
+                    <code className="bg-gray-700 text-indigo-300 px-1 py-0.5 rounded text-xs">/verificar</code>{" "}
+                    y haz clic en el link que te manda el bot.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Paso 3: Obtener key en work.ink */}
+          <div className={`bg-gray-900 rounded-xl p-5 border transition-all ${!discordVerified ? "opacity-50 border-gray-800" : "border-indigo-700"}`}>
+            <div className="flex items-center gap-3 mb-3">
+              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${discordVerified ? "bg-indigo-600 text-white" : "bg-gray-700 text-gray-400"}`}>
+                3
+              </div>
+              <div>
+                <p className={`font-medium text-sm ${discordVerified ? "text-white" : "text-gray-500"}`}>
+                  Obtén tu key en work.ink
+                </p>
                 <p className="text-gray-500 text-xs">Completa los pasos y recibirás tu key automáticamente</p>
               </div>
             </div>
             <a
-              href={step1Done ? WORKINK_LINK : undefined}
+              href={discordVerified ? WORKINK_LINK : undefined}
               target="_blank"
               rel="noopener noreferrer"
-              onClick={e => { if (!step1Done) e.preventDefault(); }}
+              onClick={e => { if (!discordVerified) e.preventDefault(); }}
               className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-colors text-sm w-full ${
-                step1Done
+                discordVerified
                   ? "bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer"
                   : "bg-gray-800 text-gray-500 cursor-not-allowed"
               }`}
             >
-              {step1Done ? "Obtener Key →" : "Completa el paso 1 primero"}
+              {discordVerified ? "Obtener Key →" : "Completa los pasos 1 y 2 primero"}
             </a>
           </div>
         </div>
@@ -76,6 +149,14 @@
           ¿Ya tienes una key? <a href="/getkey" className="text-indigo-400 hover:text-indigo-300 transition-colors">Ver estado de tu key</a>
         </p>
       </main>
+    );
+  }
+
+  export default function Home() {
+    return (
+      <Suspense>
+        <HomeContent />
+      </Suspense>
     );
   }
   
