@@ -3,7 +3,7 @@
   import { useState, useEffect, useCallback, Suspense } from "react";
   import { useSearchParams, useRouter } from "next/navigation";
 
-  const DISCORD_INVITE = "https://discord.gg/B29pp4vm5G";
+  const DISCORD_INVITE = "https://discord.gg/aERxwdSGxz";
   const WORKINK_LINK  = "https://work.ink/2tqZ/keyserver";
 
   const DiscordIcon = () => (
@@ -36,7 +36,7 @@
       const verified = searchParams.get("verified");
       const err = searchParams.get("error");
 
-      if (err === "token_invalid") setError("❌ El link expiró o ya fue usado. Corre /verificar de nuevo en Discord.");
+      if (err === "token_invalid") setError("❌ El link expiró o ya fue usado. Corre !verify de nuevo en Discord.");
       if (err === "token_missing") setError("❌ Link inválido. Usa /verificar en el servidor de Discord.");
 
       if (verified === "1") {
@@ -97,7 +97,7 @@
                 <p className="text-gray-500 text-xs">
                   {discordVerified
                     ? "El bot confirmó tu membresía"
-                    : "Escribe /verificar en cualquier canal del servidor"}
+                    : "Escribe !verify en el canal de verify para completar"}
                 </p>
               </div>
             </div>
