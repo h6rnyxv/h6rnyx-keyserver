@@ -4,7 +4,7 @@
   import { useSearchParams } from "next/navigation";
   import { Suspense } from "react";
 
-  const DISCORD_INVITE = "https://discord.gg/B29pp4vm5G";
+  const DISCORD_INVITE = "https://discord.gg/aERxwdSGxz";
   const WORKINK_LINK = "https://work.ink/2tqZ/keyserver";
 
   const DiscordIcon = () => (
