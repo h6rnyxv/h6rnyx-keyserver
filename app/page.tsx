@@ -51,7 +51,7 @@
       <main className="max-w-lg mx-auto px-4 py-16">
         <div className="text-center mb-10">
           <h1 className="text-3xl font-bold text-white">H6rnyx KeyServer</h1>
-          <p className="text-gray-500 text-sm mt-1">Anchored Alpha ESP — Obtén tu key gratis</p>
+          <p className="text-gray-500 text-sm mt-1">Obtén tu key aquí</p>
         </div>
 
         {error && (
