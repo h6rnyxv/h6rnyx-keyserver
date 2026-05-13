@@ -610,7 +610,25 @@ export default function AdminPage() {
               </div>
             )}
             <div>
-              <label className="text-zinc-400 text-xs font-medium mb-1.5 block">Script (Lua)</label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-zinc-400 text-xs font-medium">Script (Lua)</label>
+                <label className="cursor-pointer flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium transition-all hover:opacity-80"
+                  style={{background: "rgba(139,92,246,0.12)", border: "1px solid rgba(139,92,246,0.25)", color: "#c084fc"}}>
+                  📁 Subir archivo
+                  <input type="file" accept=".lua,.txt" className="hidden"
+                    onChange={e => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const reader = new FileReader();
+                      reader.onload = ev => {
+                        const text = ev.target?.result as string;
+                        setEditingLoader(prev => prev ? { ...prev, script: text } : prev);
+                      };
+                      reader.readAsText(file);
+                      e.target.value = "";
+                    }} />
+                </label>
+              </div>
               <textarea value={editingLoader.script}
                 onChange={e => setEditingLoader(prev => prev ? { ...prev, script: e.target.value } : prev)}
                 rows={12}
