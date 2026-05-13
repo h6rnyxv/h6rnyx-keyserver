@@ -37,7 +37,7 @@
       const err = searchParams.get("error");
 
       if (err === "token_invalid") setError("❌ El link expiró o ya fue usado. Corre !verify de nuevo en Discord.");
-      if (err === "token_missing") setError("❌ Link inválido. Usa /verificar en el servidor de Discord.");
+      if (err === "token_missing") setError("❌ Link inválido. Usa !verify en el servidor de Discord.");
 
       if (verified === "1") {
         // Viene de redireccion post-verificacion, limpiar URL
@@ -108,7 +108,7 @@
                 ) : (
                   <p className="text-gray-400 text-xs leading-relaxed">
                     En el servidor de Discord, escribe el comando{" "}
-                    <code className="bg-gray-700 text-indigo-300 px-1 py-0.5 rounded text-xs">/verificar</code>{" "}
+                    <code className="bg-gray-700 text-indigo-300 px-1 py-0.5 rounded text-xs">!verify</code>{" "}
                     y haz clic en el link que te manda el bot.
                   </p>
                 )}
