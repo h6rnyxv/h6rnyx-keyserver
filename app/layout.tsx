@@ -13,7 +13,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es">
-      <body className="bg-gray-950 text-white min-h-screen">{children}</body>
+      <body style={{background: "#000000", minHeight: "100vh", color: "#fff"}}>{children}</body>
     </html>
   );
 }
